@@ -5,3 +5,4 @@
 - Daily plans (With a voting system to set an activity for the day)
 - Reminders before the activity
 - Wishes for future activities
+### Extra Feautures:
