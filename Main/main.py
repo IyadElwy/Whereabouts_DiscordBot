@@ -3,11 +3,33 @@ import time
 import bs4
 import requests
 from dotenv import load_dotenv
-
+import sqlite3
 import discord
+import pickle
+import datetime
+
+
+class Schedule:
+    def __init__(self, sunday, monday, tuesday, wednesday,
+                 thursday, saturday):
+        self.sunday = sunday
+        self.monday = monday
+        self.tuesday = tuesday
+        self.wednesday = wednesday
+        self.thursday = thursday
+        self.saturday = saturday
+
+
+class User:
+    def __init__(self, name, birthday, schedule: Schedule = None):
+        self.name = name
+        self.birthday = birthday
+        self.schedule = schedule
 
 
 class MyClient(discord.Client):
+    current_name = ""
+    current_birthday = ""
 
     async def on_ready(self):
         try:
@@ -23,18 +45,17 @@ class MyClient(discord.Client):
             await self.send_msg(message, "This is the schedule setup wizard!\n"
                                          "Please follow the instructions to\n"
                                          "ensure a successful setup. \n")
+            time.sleep(1)
             await self.send_msg(message, self.user_input_example())
-        name = ""
-        birthday = ""
         if msg_content.startswith("$my_user_info"):
-            name, birthday = msg_content[1:].split("-")
+            self.current_name, self.current_birthday = msg_content[14:].split("-")
             await self.send_msg(message, self.schedule_input_example())
 
         if msg_content.startswith("$my_schedule_info"):
             file = requests.get(message.attachments[0].url)
             soup = bs4.BeautifulSoup(file.text, "html.parser")
             schedule = self.get_schedule(soup)
-            user = User(name, birthday, Schedule(
+            user = User(self.current_name, self.current_birthday, Schedule(
                 schedule[0],
                 schedule[1],
                 schedule[2],
@@ -42,11 +63,70 @@ class MyClient(discord.Client):
                 schedule[4],
                 schedule[5],
             ))
+            self.store_new_user(user)
+            self.store_new_user_normal(user)
+
+        if msg_content.startswith("$test"):
+            self.check_if_birthday()
+            self.retrieve_all_users()
 
     #         TODO: pickle data and store data in database then add method to check if today is someone's birthday
     #          and if it is then send message with birthday gif and add method to send a zen quote
     #         TODO: then add method to print all user's data to discord then find way to schedule the daily messages
-    #          then add method for someone to add wish for a plan today and let every user vote on it
+
+    def store_new_user(self, user: User):
+        pickled_user = pickle.dumps(user)
+        connection = sqlite3.connect(
+            r"C:\Users\iyade\PycharmProjects\Python-Personal-Projects\Whereabots\whereabots_users.db")
+        cursor = connection.cursor()
+        cursor.execute("""INSERT INTO users (user) VALUES (?);""", (pickled_user,))
+        connection.commit()
+        connection.close()
+
+    @staticmethod
+    def store_new_user_normal(user: User):
+        connection = sqlite3.connect(
+            r"C:\Users\iyade\PycharmProjects\Python-Personal-Projects\Whereabots\normal_user_data.db")
+        cursor = connection.cursor()
+        cursor.execute("""INSERT INTO user (name, birthday) VALUES (?, ?);""",
+                       (user.name, user.birthday))
+        connection.commit()
+        connection.close()
+
+    @staticmethod
+    def retrieve_user_normal():
+        results = list()
+        connection = sqlite3.connect(
+            r"C:\Users\iyade\PycharmProjects\Python-Personal-Projects\Whereabots\normal_user_data.db")
+        cursor = connection.cursor()
+        for row in cursor.execute("""SELECT * FROM user;"""):
+            results.append(row)
+        connection.commit()
+        connection.close()
+        return results
+
+    @staticmethod
+    def retrieve_all_users() -> list[User]:
+        users = list()
+        connection = sqlite3.connect(
+            r"C:\Users\iyade\PycharmProjects\Python-Personal-Projects\Whereabots\whereabots_users.db")
+        cursor = connection.cursor()
+        for row in cursor.execute("""SELECT * FROM users;"""):
+            unpickled_user = pickle.loads(row[1])
+            users.append(unpickled_user)
+        connection.commit()
+        connection.close()
+        return users
+
+    def check_if_birthday(self):
+        user_birthdays = list()
+        current_day = datetime.datetime.today().day
+        current_month = datetime.datetime.today().month
+        for user in self.retrieve_user_normal():
+            user_day, user_month = user[2][:5].split(".")
+            if int(user_day) == int(current_day) and int(user_month) == int(current_month):
+                user_birthdays.append(user[1])
+        return user_birthdays
 
     @staticmethod
     async def send_msg(message, msg):
@@ -124,24 +204,6 @@ class MyClient(discord.Client):
             end += 5
 
         return schedule_list
-
-
-class Schedule:
-    def __init__(self, sunday, monday, tuesday, wednesday,
-                 thursday, friday):
-        self.sunday = sunday
-        self.monday = monday
-        self.tuesday = tuesday
-        self.wednesday = wednesday
-        self.thursday = thursday
-        self.friday = friday
-
-
-class User:
-    def __init__(self, name, birthday, schedule: Schedule = None):
-        self.name = name
-        self.birthday = birthday
-        self.schedule = schedule
 
 
 if __name__ == '__main__':
