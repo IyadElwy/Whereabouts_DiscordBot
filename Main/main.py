@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import bs4
@@ -7,6 +8,10 @@ import sqlite3
 import discord
 import pickle
 import datetime
+import json
+from datetime import date
+import calendar
+from discord.ext import tasks, commands
 
 
 class Schedule:
@@ -18,6 +23,14 @@ class Schedule:
         self.wednesday = wednesday
         self.thursday = thursday
         self.saturday = saturday
+        self.all_days = [
+            self.saturday,
+            self.sunday,
+            self.monday,
+            self.tuesday,
+            self.wednesday,
+            self.thursday,
+        ]
 
 
 class User:
@@ -30,10 +43,13 @@ class User:
 class MyClient(discord.Client):
     current_name = ""
     current_birthday = ""
+    channel = None
 
     async def on_ready(self):
         try:
             print(f"We have logged in as {self.user.name}")
+            self.channel = discord.utils.get(self.get_all_channels(), name="general")
+
         except:
             await self.on_ready()
 
@@ -66,13 +82,80 @@ class MyClient(discord.Client):
             self.store_new_user(user)
             self.store_new_user_normal(user)
 
+        if msg_content.startswith("$birthday"):
+            birthdays = self.check_if_birthday()
+            if birthdays:
+                await self.send_msg(message, f"Happy Birthday {birthdays[0]}!")
+            else:
+                await self.send_msg(message, "No one's Birthday today...")
+
+        if msg_content.startswith("$zen"):
+            await self.send_msg(message, self.get_quote())
+
+        if msg_content.startswith("$schedules"):
+            users = self.retrieve_user_normal()
+            user_schedules = self.retrieve_all_users()
+            week_day = calendar.day_name[date.today().weekday()]
+            for index, current_user in enumerate(users):
+                await self.send_msg(message, f"{current_user[1]}:")
+                await self.send_msg(message, self.make_schedule_pretty(user_schedules[index].schedule, week_day))
+
         if msg_content.startswith("$test"):
             self.check_if_birthday()
             self.retrieve_all_users()
 
-    #         TODO: pickle data and store data in database then add method to check if today is someone's birthday
-    #          and if it is then send message with birthday gif and add method to send a zen quote
-    #         TODO: then add method to print all user's data to discord then find way to schedule the daily messages
+    @tasks.loop(seconds=60)
+    async def timer(self):
+
+        try:
+            users = self.retrieve_user_normal()
+            user_schedules = self.retrieve_all_users()
+            week_day = calendar.day_name[date.today().weekday()]
+            await self.channel.send("\nGood Morning\n")
+            await self.channel.send("-")
+            if self.check_if_birthday():
+                await self.channel.send(f"Happy Birthday to {self.check_if_birthday()[0]}:")
+                await self.channel.send("-")
+            await self.channel.send(f"\n{self.get_quote()}\n")
+            await self.channel.send("-")
+
+            for index, current_user in enumerate(users):
+                await self.channel.send(f"\n{current_user[1]}:")
+                await self.channel.send("-")
+                await self.channel.send("\n" + self.make_schedule_pretty(user_schedules[index].schedule, week_day))
+                await self.channel.send("-\n-")
+
+        except:
+            pass
+
+    @staticmethod
+    def make_schedule_pretty(schedule: Schedule, current_day: str):
+        result = ""
+        week_day = None
+        for day in schedule.all_days:
+
+            if day[0][0].casefold() == current_day.casefold():
+                week_day = day
+                break
+        for i in range(5):
+            try:
+                result += f"{week_day[i][0]} | {week_day[i][1][0][0]} | {week_day[i][1][0][1]} | " \
+                          f"{week_day[i][1][1][0]} | {week_day[i][1][1][1]} | {week_day[i][1][1][2]}\n\n"
+
+            except:
+                return "Today Is Free!"
+        return result + "\n\n"
+
+    @staticmethod
+    def get_quote():
+        response = requests.get("https://zenquotes.io/api/random")
+        try:
+            response.raise_for_status()
+            json_data = json.loads(response.text)
+            quote = json_data[0]["q"] + " -" + json_data[0]["a"]
+            return quote
+        except requests.exceptions.HTTPError:
+            pass
 
     def store_new_user(self, user: User):
         pickled_user = pickle.dumps(user)
@@ -209,4 +292,5 @@ class MyClient(discord.Client):
 if __name__ == '__main__':
     load_dotenv()
     client = MyClient()
+    client.timer.start()
     client.run(os.getenv("TOKEN"))
