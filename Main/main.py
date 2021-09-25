@@ -11,7 +11,7 @@ import datetime
 import json
 from datetime import date
 import calendar
-from discord.ext import tasks, commands
+from discord.ext import tasks
 
 
 class Schedule:
@@ -100,11 +100,7 @@ class MyClient(discord.Client):
                 await self.send_msg(message, f"{current_user[1]}:")
                 await self.send_msg(message, self.make_schedule_pretty(user_schedules[index].schedule, week_day))
 
-        if msg_content.startswith("$test"):
-            self.check_if_birthday()
-            self.retrieve_all_users()
-
-    @tasks.loop(seconds=60)
+    @tasks.loop(hours=24)
     async def timer(self):
 
         try:
@@ -157,6 +153,7 @@ class MyClient(discord.Client):
         except requests.exceptions.HTTPError:
             pass
 
+    # TODO: Remove db paths
     def store_new_user(self, user: User):
         pickled_user = pickle.dumps(user)
         connection = sqlite3.connect(
