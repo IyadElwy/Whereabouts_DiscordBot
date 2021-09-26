@@ -100,29 +100,30 @@ class MyClient(discord.Client):
                 await self.send_msg(message, f"{current_user[1]}:")
                 await self.send_msg(message, self.make_schedule_pretty(user_schedules[index].schedule, week_day))
 
-    @tasks.loop(hours=24)
+    @tasks.loop(seconds=2)
     async def timer(self):
-
-        try:
-            users = self.retrieve_user_normal()
-            user_schedules = self.retrieve_all_users()
-            week_day = calendar.day_name[date.today().weekday()]
-            await self.channel.send("\nGood Morning\n")
-            await self.channel.send("-")
-            if self.check_if_birthday():
-                await self.channel.send(f"Happy Birthday to {self.check_if_birthday()[0]}:")
+        now = datetime.datetime.now()
+        if now.hour == 6 and now.minute == 30:
+            try:
+                users = self.retrieve_user_normal()
+                user_schedules = self.retrieve_all_users()
+                week_day = calendar.day_name[date.today().weekday()]
+                await self.channel.send("\nGood Morning\n")
                 await self.channel.send("-")
-            await self.channel.send(f"\n{self.get_quote()}\n")
-            await self.channel.send("-")
-
-            for index, current_user in enumerate(users):
-                await self.channel.send(f"\n{current_user[1]}:")
+                if self.check_if_birthday():
+                    await self.channel.send(f"Happy Birthday to {self.check_if_birthday()[0]}:")
+                    await self.channel.send("-")
+                await self.channel.send(f"\n{self.get_quote()}\n")
                 await self.channel.send("-")
-                await self.channel.send("\n" + self.make_schedule_pretty(user_schedules[index].schedule, week_day))
-                await self.channel.send("-\n-")
 
-        except:
-            pass
+                for index, current_user in enumerate(users):
+                    await self.channel.send(f"\n{current_user[1]}:")
+                    await self.channel.send("-")
+                    await self.channel.send("\n" + self.make_schedule_pretty(user_schedules[index].schedule, week_day))
+                    await self.channel.send("-\n-")
+
+            except:
+                pass
 
     @staticmethod
     def make_schedule_pretty(schedule: Schedule, current_day: str):
