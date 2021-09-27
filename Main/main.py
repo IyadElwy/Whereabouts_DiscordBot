@@ -1,4 +1,3 @@
-import asyncio
 import os
 import time
 import bs4
@@ -12,6 +11,7 @@ import json
 from datetime import date
 import calendar
 from discord.ext import tasks
+from server import keep_alive
 
 
 class Schedule:
@@ -289,6 +289,7 @@ class MyClient(discord.Client):
 
 if __name__ == '__main__':
     load_dotenv()
+    # keep_alive()
     client = MyClient()
     client.timer.start()
     client.run(os.getenv("TOKEN"))
