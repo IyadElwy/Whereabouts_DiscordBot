@@ -1,6 +1,7 @@
 # Whereabots
 ## A Discord bot that informs the channel members about each member's daily schedule and whereabouts so that they can meet up accordingly
 ### Supports:
+- Reading in an HTML file of the schedule and scrapes out all needed info and automatically creates the schedule using it
 - Scheduling 
 - Daily plans (With a voting system to set an activity for the day)
 
